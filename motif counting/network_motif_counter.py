@@ -1,11 +1,99 @@
 import networkx as nx
 import numpy as np
 import itertools
+import nltk
+from nltk.tokenize import WhitespaceTokenizer
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
+from time import time
 
+
+"""
+By 7/27: 
+
+TODO:
+Use fmri (82,82,97), the fourth column in the node file to define motifs.
+The fourth column provides node labels(functional module)
+The edges +- (edge weight>threshold, positive, <-threshold,negative.  threshold= 0, 0.2, 0.5)
+The edge weight between roi1 and roi2 is sample[0,1] or sample[1,0] np.fill_diagnose()
+Check significance between classes defined in label.
+2 nodes motif (write these motifs within significant differences among groups on readme.)
+3 nodes motif 
+
+Plan: 
+
+Remake dataset by including 4th column. done
+Enumerate motifs (do only 2 nodes) 
+Find counts
+Use t-tests
+Publish results on readme
+
+
+"""
+
+"""
+TODO by 8/9:
+
+Find differences between classes and conduct t-test. Create table
+ similar to in Dheep-Motif doc. 
+ 
+Plan:
+1) Test sample graph on motif counting alg. 
+2) Input graphs to alg. and get each class's average count for each motif.
+3) Create table. 
+"""
 
 ## We define each S* motif as a directed graph in networkx
+
+
+brain_motifs = {
+
+}
+
+
+# enumerating all possible 2-node brain motifs
+
+    #all possible unsigned, unlabelled graphs
+M1, M2 = nx.Graph(), nx.Graph()
+M1.add_node(0)
+M1.add_node(1)
+M2.add_node(0)
+M2.add_node(1)
+M2.add_edge(0, 1)
+
+unsigned_unlabelled_twonode_motifs = {'S1': M1, 'S2': M2}
+
+nx.set_edge_attributes(M1, 'no sign added', 'sign')
+nx.set_node_attributes(M1, -1, 'module')
+nx.set_edge_attributes(M2, 'no sign added', 'sign')
+nx.set_node_attributes(M2, -1, 'module')
+
+
+
+    # all possible signed, unlabelled motifs
+signed_motifs = set()
+temp_motif = nx.Graph()
+signed_motifs.add(M1.copy())
+for motif in [M2]:
+    for sign in ['positive', 'negative']:
+        temp_motif = motif
+        nx.set_edge_attributes(temp_motif, sign, 'sign')
+        signed_motifs.add(temp_motif.copy())
+
+    #all possible signed, labelled motifs
+for motif in signed_motifs:
+    for module in [1, 2, 3, 4, 5, 6]:
+        temp_motif = motif.copy()
+
+
+#M2 =
+# temp_motif = nx.Graph()
+# for graph in [M1, M2]:
+#     for sign in ['positive', 'negative']:
+#         temp_motif = M1
+#         temp_motif[0]['sign'] = sign
+#         signed_motifs.append(temp_motif)
+print('')
 
 
 motifs = {
@@ -15,6 +103,8 @@ motifs = {
     'S4': nx.DiGraph([(1, 2), (3, 2)]),
     'S5': nx.DiGraph([(1, 2), (1, 3)])
 }
+
+
 
 
 def mcounter(gr, mo): #does mo only contain motifs of size = 3?
@@ -34,7 +124,7 @@ def mcounter(gr, mo): #does mo only contain motifs of size = 3?
 
     # This line simply creates a dictionary with 0 for all values, and the
     # motif names as keys
-
+    x = 0
     mcount = dict(zip(mo.keys(), list(map(int, np.zeros(len(mo))))))
     nodes = gr.nodes # what is this? generates NodeView obj of graph  #run
 
@@ -54,51 +144,78 @@ def mcounter(gr, mo): #does mo only contain motifs of size = 3?
     # The for each each of the triplets, we (i) take its subgraph, and compare
     # it to all fo the possible motifs
 
-#finished until here
     for trip in u_triplets:
         sub_gr = gr.subgraph(trip)
-        mot_match = map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), motifs.keys())
-        match_keys = [mo.keys()[i] for i in range(len(mo)) if mot_match[i]]
+        mot_match = list(map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys()))
+        match_keys = [list(mo.keys())[i] for i in range(len(mot_match)) if mot_match[i]]
         if len(match_keys) == 1:
             mcount[match_keys[0]] += 1
 
     return mcount
 
-def test():
-    listOfLists = [[1, 2, 3], [2, 1, 3], [3, 1, 2], [2, 3, 4], [3, 2, 4], [4, 2, 3]]
-    shortenedList = []
-    [shortenedList.append(trip) for trip in listOfLists if not shortenedList.count(trip)]
-    print(shortenedList)
 
 
 def main():
-    #test()
-    #G = nx.DiGraph([(1, 2), (2, 3)])
-    #G.add_node(node_for_adding = 2)
-    #G.add_node(3)
-    #print(G.edges([1]))
-    #print(G.nodes)
-    #print("s")
-    #H = G.subgraph([4, 5])
-    #print(H.edges)
-    #print("e")
+    #copying 4th col of Brodmann txt file to a list called 'modules'
+    tk = WhitespaceTokenizer()
+    file = open('/Users/dheepdalamal/Downloads/Node_Brodmann82.txt', 'r')
+    lines = []
+    lines = file.readlines()
+    modules = []
+    tokenized_line = []
+    for line in lines:
+        tokenized_line = tk.tokenize(line)
+        modules.append(tokenized_line[3])
+
+
 
     data = loadmat(r"/Users/dheepdalamal/Downloads/BP.mat")
-    testGraph = data["fmri"][0]
-    testGraphFinal = []
-    for array in testGraph:
-        testGraphFinal.append(list(array))
+    data_with_modules = data
+    data_with_modules['module number'] = modules
+    print(data_with_modules.keys())
+    testGraph = data["fmri"][:, :, 0]
 
-    diGraph = nx.DiGraph(testGraphFinal)
-    print(diGraph.edges)
-    print(mcounter(diGraph, motifs))
+
+
+
+
+    i = 96
+    while i > 81:
+        testGraph = np.delete(testGraph, i, 1)
+        i -= 1
+    print()
+
+    DI = nx.DiGraph([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
+
+
+    d = nx.DiGraph(testGraph)
+    result = {}
+
+    t1= time()
+    print(t1)
+    result = mcounter(d, motifs)
+    print(result)
+    t2 = time()
+    print(t2)
+    tf = (t2 - t1)/60
+    print(tf)
+
+
+    for matrix in data_with_modules["fmri"]:
+        i = 96
+        while i > 81:
+            matrix = np.delete(matrix, i, 1)
+            i -= 1
+        for row in matrix:
+            for cell in row:
+                if cell > 0.5 or cell < -0.5:
+                    cell = 1
+                else:
+                    cell = 0
+
+
+
+
 
 if __name__ == '__main__':
     main()
-
-
-#loading dataset
-
-
-
-

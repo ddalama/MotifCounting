@@ -8,7 +8,7 @@ data=loadmat(r"/Users/dheepdalamal/Downloads/BP.mat")
 
 #x = data["label"]
 #print(x)
-print(data["fmri"][0])
+#print(data.keys)
 #print(type(x))
 
 #print(data["fmri"].shape)
