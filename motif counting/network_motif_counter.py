@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from scipy.io import loadmat
 from time import time
 
+from collections import Counter
+
 
 """
 By 7/27: 
@@ -104,6 +106,19 @@ motifs = {
     'S5': nx.DiGraph([(1, 2), (1, 3)])
 }
 
+size_three_brain_motifs = {
+    'S1': nx.DiGraph([(0, 1), (1, 2), (1, 0), (2, 1)]),
+    'S2': nx.DiGraph([(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)])
+}
+
+# adjacency matrix for disconnected 2-node unsigned unlabelled motif.
+a = [[0, 0], [0, 0]]
+adj = np.array(a)
+
+size_two_motifs = {
+    'S1': nx.DiGraph([(0, 1), (1, 0)]),
+    'S2': nx.DiGraph(adj)
+}
 
 
 
@@ -124,6 +139,8 @@ def mcounter(gr, mo): #does mo only contain motifs of size = 3?
 
     # This line simply creates a dictionary with 0 for all values, and the
     # motif names as keys
+
+    #!!!!! could generalise the algorithm for k-size motifs
     x = 0
     mcount = dict(zip(mo.keys(), list(map(int, np.zeros(len(mo))))))
     nodes = gr.nodes # what is this? generates NodeView obj of graph  #run
@@ -136,21 +153,38 @@ def mcounter(gr, mo): #does mo only contain motifs of size = 3?
     # What does sentence 2 mean?
 
     triplets = list(itertools.product(*[nodes, nodes, nodes])) #returns all 3-node combinations
-    triplets = [trip for trip in triplets if len(list(set(trip))) == 3] #reduces list to include only 3-node combinations w no dups.
+    triplets = list([trip for trip in triplets if len(list(set(trip))) == 3]) #reduces list to include only 3-node combinations w no dups.
     triplets = map(list, map(np.sort, triplets))  # returns a list of sorted triplets (list of 3 nodes). maps isomorphic triplets to a single triplet. #run
-    u_triplets = []
-    [u_triplets.append(trip) for trip in triplets if not u_triplets.count(trip)] #removes duplicate triplets.
+    triplets = list(tuple(trip) for trip in triplets)
+    u_triplets = list()
+    u_triplets = list(set(triplets))
 
-    # The for each each of the triplets, we (i) take its subgraph, and compare
-    # it to all fo the possible motifs
+    # count = Counter()
+    # for trip in triplets:
+    #         count[trip] += 1
+    #removes duplicate triplets. count is very slow. use counter object instead. OR could we use set() instead to elim dups.
+    #    [u_triplets.append(trip) for trip in triplets if not u_triplets.count(trip)]
+    #From collections import counter
+
+    # doubles = list(itertools.product(*[nodes, nodes]))
+    # doubles = [doub for doub in doubles if len(list(set(doub))) == 2]
+    # doubles = map(list, map(np.sort, doubles))
+    # u_doubles = []
+    # [u_doubles.append(doub) for doub in doubles if not u_doubles.count(doub)].
+    # # The for each each of the triplets, we (i) take its subgraph, and compare
+    # # it to all fo the possible motifs
 
     for trip in u_triplets:
         sub_gr = gr.subgraph(trip)
+        nx.draw(sub_gr)
         mot_match = list(map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys()))
         match_keys = [list(mo.keys())[i] for i in range(len(mot_match)) if mot_match[i]]
         if len(match_keys) == 1:
             mcount[match_keys[0]] += 1
 
+    print()
+    print()
+    print()
     return mcount
 
 
@@ -179,41 +213,36 @@ def main():
 
 
 
-    i = 96
-    while i > 81:
-        testGraph = np.delete(testGraph, i, 1)
-        i -= 1
-    print()
 
     DI = nx.DiGraph([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
 
 
     d = nx.DiGraph(testGraph)
     result = {}
+    ti = time()
+    print(ti)
+    # for matrix in data_with_modules["fmri"]:
+    #     for row in matrix:
+    #         for cell in row:
+    #             if cell > 0.5 or cell < -0.5:
+    #                 cell = 1
+    #             else:
+    #                 cell = 0
+    tf = time()
+    print(tf)
+
+    td = (tf - ti)/60
+    print(td)
+
 
     t1= time()
     print(t1)
-    result = mcounter(d, motifs)
+    result = mcounter(d, size_three_brain_motifs)
     print(result)
     t2 = time()
     print(t2)
     tf = (t2 - t1)/60
     print(tf)
-
-
-    for matrix in data_with_modules["fmri"]:
-        i = 96
-        while i > 81:
-            matrix = np.delete(matrix, i, 1)
-            i -= 1
-        for row in matrix:
-            for cell in row:
-                if cell > 0.5 or cell < -0.5:
-                    cell = 1
-                else:
-                    cell = 0
-
-
 
 
 
