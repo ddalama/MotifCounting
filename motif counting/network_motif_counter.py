@@ -183,14 +183,14 @@ def mcounter(gr, mo): #does mo only contain motifs of size = 3?
         t3 = time()
         t1 = time()
         sub_gr = gr.subgraph(trip)
-        nx.draw(sub_gr)
+        #nx.draw(sub_gr)
         t2 = time()
         td = t2 - t1
 
         # nx.draw(sub_gr)
 
         t1 = time()
-        mot_match = map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys())
+        mot_match = list(map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys()))
         t2 = time()
         td = t2 - t1
 
