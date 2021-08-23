@@ -120,7 +120,8 @@ size_two_motifs = {
     'S2': nx.DiGraph(adj)
 }
 
-
+#nx.draw(size_three_brain_motifs['S1'])
+nx.draw(size_three_brain_motifs['S2'])
 
 def mcounter(gr, mo): #does mo only contain motifs of size = 3?
     """Counts motifs in a directed graph
@@ -141,6 +142,8 @@ def mcounter(gr, mo): #does mo only contain motifs of size = 3?
     # motif names as keys
 
     #!!!!! could generalise the algorithm for k-size motifs
+    tb = time()
+
     x = 0
     mcount = dict(zip(mo.keys(), list(map(int, np.zeros(len(mo))))))
     nodes = gr.nodes # what is this? generates NodeView obj of graph  #run
@@ -174,17 +177,39 @@ def mcounter(gr, mo): #does mo only contain motifs of size = 3?
     # # The for each each of the triplets, we (i) take its subgraph, and compare
     # # it to all fo the possible motifs
 
+
     for trip in u_triplets:
+        #print()
+        t3 = time()
+        t1 = time()
         sub_gr = gr.subgraph(trip)
         nx.draw(sub_gr)
-        mot_match = list(map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys()))
+        t2 = time()
+        td = t2 - t1
+
+        # nx.draw(sub_gr)
+
+        t1 = time()
+        mot_match = map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys())
+        t2 = time()
+        td = t2 - t1
+
+        t1 = time()
         match_keys = [list(mo.keys())[i] for i in range(len(mot_match)) if mot_match[i]]
+        t2 = time()
+        td = t2 - t1
+
+        t1 = time()
         if len(match_keys) == 1:
             mcount[match_keys[0]] += 1
-
-    print()
-    print()
-    print()
+        t2 = time()
+        td = t2 - t1
+        t4 = time()
+        tf = t4 - t3
+        #print("tf = " + str(tf))
+        te = time()
+        algtime = te - tb
+        print("algtime = " + str(algtime))
     return mcount
 
 
@@ -221,13 +246,18 @@ def main():
     result = {}
     ti = time()
     print(ti)
-    # for matrix in data_with_modules["fmri"]:
-    #     for row in matrix:
-    #         for cell in row:
-    #             if cell > 0.5 or cell < -0.5:
-    #                 cell = 1
-    #             else:
-    #                 cell = 0
+    for matrix in data_with_modules["fmri"]:
+        t1 = time()
+        for row in matrix:
+            for cell in row:
+                if cell > 0.5 or cell < -0.5:
+                    cell = 1
+                else:
+                    cell = 0
+        t2 = time()
+        t3 = t2 - t1
+        print()
+
     tf = time()
     print(tf)
 
