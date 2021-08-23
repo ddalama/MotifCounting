@@ -11,7 +11,7 @@ from collections import Counter
 
 
 """
-By 7/27: 
+.By 7/27:       
 
 TODO:
 Use fmri (82,82,97), the fourth column in the node file to define motifs.
