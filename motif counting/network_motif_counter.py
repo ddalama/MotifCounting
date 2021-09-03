@@ -2,10 +2,14 @@ import networkx as nx
 import numpy as np
 import itertools
 import nltk
+import scipy
 from nltk.tokenize import WhitespaceTokenizer
 import matplotlib.pyplot as plt
 from scipy.io import loadmat
 from time import time
+from scipy import stats
+
+import collections
 
 from collections import Counter
 
@@ -98,18 +102,29 @@ for motif in signed_motifs:
 print('')
 
 
-motifs = {
-    'S1': nx.DiGraph([(1, 2), (2, 3)]), #are these edges?
-    'S2': nx.DiGraph([(1, 2), (1, 3), (2, 3)]),
-    'S3': nx.DiGraph([(1, 2), (2, 3), (3, 1)]),
-    'S4': nx.DiGraph([(1, 2), (3, 2)]),
-    'S5': nx.DiGraph([(1, 2), (1, 3)])
+size_three_brain_motifs = {
+    #3-node motifs
+    'm3.1': nx.DiGraph([(0, 1), (1, 2), (1, 0), (2, 1)]),
+    'm3.2': nx.DiGraph([(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)]),
+    #4-node motifs
+
 }
 
-size_three_brain_motifs = {
-    'S1': nx.DiGraph([(0, 1), (1, 2), (1, 0), (2, 1)]),
-    'S2': nx.DiGraph([(0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)])
+size_four_brain_motifs = {
+    'm4.1': nx.DiGraph([(0, 1), (1, 2), (1, 0), (2, 3), (2, 1), (3, 2)]),
+    'm4.2': nx.DiGraph([(0, 1), (1, 0), (1, 2), (1, 3), (2, 1), (3, 1)]),
+    'm4.3': nx.DiGraph([(0, 1), (1, 0), (1, 2), (1, 3), (2, 1), (2, 3), (3, 2), (3, 2)]),
+    'm4.4': nx.DiGraph([(0, 1), (0, 3), (1, 0), (1, 2), (2, 1), (2, 3), (3, 0), (3, 2)]),
+    'm4.5': nx.DiGraph([(0, 1), (0, 3), (1, 0), (1, 2), (1, 3), (2, 1), (2, 3), (3, 0), (3, 1), (3, 2)]),
+    'm4.6': nx.DiGraph([(0, 1), (0, 2), (0, 3), (1, 0), (1, 2), (1, 3), (2, 0), (2, 1), (2, 3), (3, 0), (3, 1), (3, 2)])
 }
+
+# for key in size_three_brain_motifs:
+#     nx.draw(size_three_brain_motifs[key])
+#
+# nx.draw(size_three_brain_motifs['m4.6'])
+
+
 
 # adjacency matrix for disconnected 2-node unsigned unlabelled motif.
 a = [[0, 0], [0, 0]]
@@ -120,13 +135,27 @@ size_two_motifs = {
     'S2': nx.DiGraph(adj)
 }
 
-#nx.draw(size_three_brain_motifs['S1'])
-nx.draw(size_three_brain_motifs['S2'])
 
-def mcounter(gr, mo): #does mo only contain motifs of size = 3?
+
+def variance(some_list):
+    # Number of observations
+    n = len(some_list)
+    # Mean of the data
+    mean = sum(some_list) / n
+    # Square deviations
+    deviations = [(x - mean) ** 2 for x in some_list]
+    # Variance
+    variance = sum(deviations) / n
+
+    return variance
+
+
+
+def mcounter(gr, mo, size): #does mo only contain motifs of size = 3?
     """Counts motifs in a directed graph
     :param gr: A ``DiGraph`` object
     :param mo: A ``dict`` of motifs to count
+    :param size: motif size
     :returns: A ``dict`` with the number of each motifs, with the same keys as ``mo``
     This function is actually rather simple. It will extract all 3-grams from
     the original graph, and look for isomorphisms in the motifs contained
@@ -144,72 +173,41 @@ def mcounter(gr, mo): #does mo only contain motifs of size = 3?
     #!!!!! could generalise the algorithm for k-size motifs
     tb = time()
 
+
+
+
     x = 0
     mcount = dict(zip(mo.keys(), list(map(int, np.zeros(len(mo))))))
     nodes = gr.nodes # what is this? generates NodeView obj of graph  #run
 
+    node_repeat = [nodes] * size
 
-    # We use iterools.product to have all combinations of three nodes in the
-    # original graph. Then we filter combinations with non-unique nodes, because
-    # the motifs do not account for self-consumption.
-
-    # What does sentence 2 mean?
-
-    triplets = list(itertools.product(*[nodes, nodes, nodes])) #returns all 3-node combinations
-    triplets = list([trip for trip in triplets if len(list(set(trip))) == 3]) #reduces list to include only 3-node combinations w no dups.
+    triplets = list(itertools.product(*node_repeat)) #returns all 3-node combinations
+    triplets = list([trip for trip in triplets if len(list(set(trip))) == size]) #reduces list to include only 3-node combinations w no dups.
     triplets = map(list, map(np.sort, triplets))  # returns a list of sorted triplets (list of 3 nodes). maps isomorphic triplets to a single triplet. #run
     triplets = list(tuple(trip) for trip in triplets)
     u_triplets = list()
     u_triplets = list(set(triplets))
 
-    # count = Counter()
-    # for trip in triplets:
-    #         count[trip] += 1
-    #removes duplicate triplets. count is very slow. use counter object instead. OR could we use set() instead to elim dups.
-    #    [u_triplets.append(trip) for trip in triplets if not u_triplets.count(trip)]
-    #From collections import counter
-
-    # doubles = list(itertools.product(*[nodes, nodes]))
-    # doubles = [doub for doub in doubles if len(list(set(doub))) == 2]
-    # doubles = map(list, map(np.sort, doubles))
-    # u_doubles = []
-    # [u_doubles.append(doub) for doub in doubles if not u_doubles.count(doub)].
-    # # The for each each of the triplets, we (i) take its subgraph, and compare
-    # # it to all fo the possible motifs
-
-
     for trip in u_triplets:
-        #print()
-        t3 = time()
-        t1 = time()
+
         sub_gr = gr.subgraph(trip)
-        #nx.draw(sub_gr)
-        t2 = time()
-        td = t2 - t1
 
-        # nx.draw(sub_gr)
 
-        t1 = time()
+
+
+
         mot_match = list(map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys()))
-        t2 = time()
-        td = t2 - t1
 
-        t1 = time()
+
+
         match_keys = [list(mo.keys())[i] for i in range(len(mot_match)) if mot_match[i]]
-        t2 = time()
-        td = t2 - t1
 
-        t1 = time()
+
+
         if len(match_keys) == 1:
             mcount[match_keys[0]] += 1
-        t2 = time()
-        td = t2 - t1
-        t4 = time()
-        tf = t4 - t3
-        #print("tf = " + str(tf))
-        te = time()
-        algtime = te - tb
-        print("algtime = " + str(algtime))
+
     return mcount
 
 
@@ -228,51 +226,97 @@ def main():
 
 
 
+
+
+    # node_repeat = list(node_repeat[:-2] + "]")
+    print()
+    print()
     data = loadmat(r"/Users/dheepdalamal/Downloads/BP.mat")
     data_with_modules = data
     data_with_modules['module number'] = modules
-    print(data_with_modules.keys())
-    testGraph = data["fmri"][:, :, 0]
+
+    mcounter(nx.DiGraph(data_with_modules["fmri"][:, :, 0]), size_three_brain_motifs, 4)
 
 
 
 
-
-
-    DI = nx.DiGraph([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
-
-
-    d = nx.DiGraph(testGraph)
-    result = {}
-    ti = time()
-    print(ti)
-    for matrix in data_with_modules["fmri"]:
+#making adjacency matrix binary
+    for i in range(0, 97):
         t1 = time()
-        for row in matrix:
-            for cell in row:
-                if cell > 0.5 or cell < -0.5:
-                    cell = 1
-                else:
-                    cell = 0
-        t2 = time()
-        t3 = t2 - t1
-        print()
-
-    tf = time()
-    print(tf)
-
-    td = (tf - ti)/60
-    print(td)
+        for j in range(0, 82):
+            for k in range(0, 82):
+               if (data_with_modules["fmri"][:, :, i][j][k] > 0.005) or (data_with_modules["fmri"][:, :, i][j][k] < -0.005):
+                    data_with_modules["fmri"][:, :, i][j][k] = 1
+               else:
+                    data_with_modules["fmri"][:, :, i][j][k] = 0
+            data_with_modules["fmri"][:, :, i][j][j] = 0
 
 
-    t1= time()
-    print(t1)
-    result = mcounter(d, size_three_brain_motifs)
-    print(result)
-    t2 = time()
-    print(t2)
-    tf = (t2 - t1)/60
-    print(tf)
+    diseased_samples = 52
+    non_diseased_samples = 45
+
+
+    # #running mcounter alg. on whole dataset
+    # diseased_aggregate = collections.Counter({'S1': 0, 'S2': 0})
+    # non_diseased_aggregate = collections.Counter({'S1': 0, 'S2': 0})
+    # diseased_average = collections.Counter({'S1': 0, 'S2': 0})
+    # non_diseased_average = collections.Counter({'S1': 0, 'S2': 0})
+    # diseased_list_S1 = []
+    # non_diseased_list_S1 = []
+    # diseased_list_S2 = []
+    # non_diseased_list_S2 = []
+    # for i in range(0, 97):
+    #     if data_with_modules["label"][i] == 1:
+    #         count = mcounter(nx.DiGraph(data_with_modules["fmri"][:, :, i]), size_three_brain_motifs)
+    #         diseased_list_S1.append(count["S1"])
+    #         diseased_list_S2.append(count["S2"])
+    #         diseased_aggregate.update(count)
+    #         print("diseased aggregate = " + str(diseased_aggregate))
+    #
+    #
+    #     elif data_with_modules["label"][i] == -1:
+    #         count = mcounter(nx.DiGraph(data_with_modules["fmri"][:, :, i]), size_three_brain_motifs)
+    #         non_diseased_list_S1.append(count["S1"])
+    #         non_diseased_list_S2.append(count["S2"])
+    #         non_diseased_aggregate.update(count)
+    #         print("non_diseased_aggregate = " + str(non_diseased_aggregate))
+    #
+    #
+    # print()
+    # print("______________________________________")
+    # print()
+    # print("diseased list S1 = " + str(diseased_list_S1))
+    # print("diseased list S2 = " + str(diseased_list_S2))
+    # print("non-diseased list S1 = " + str(non_diseased_list_S1))
+    # print("non-diseased list S2 = " + str(non_diseased_list_S2))
+    # diseased_average_S1 = diseased_aggregate["S1"]/diseased_samples
+    # diseased_average_S2 = diseased_aggregate["S2"]/non_diseased_samples
+    # non_diseased_average_S1 = non_diseased_aggregate["S1"]/non_diseased_samples
+    # non_diseased_average_S2 = non_diseased_aggregate["S2"]/non_diseased_samples
+    #
+    # print("diseased average S1 = " + str(diseased_average_S1))
+    # print("diseased average S2 = " + str(diseased_average_S2))
+    # print("non diseased average S1 = " + str(non_diseased_average_S1))
+    # print("non diseased average S2 = " + str(non_diseased_average_S2))
+    #
+    # print("diseased variance S1 = " + str(variance(diseased_list_S1)))
+    # print("diseased variance S2 = " + str(variance(diseased_list_S2)))
+    # print("non-diseased variance S1 = " + str(variance(non_diseased_list_S1)))
+    # print("non-diseased variance S2 = " + str(variance(non_diseased_list_S2)))
+    #
+    #
+    #
+    # diseased_list_S1 = [1158, 1630, 1425, 1482, 1313, 1750, 1610, 1257, 1703, 1062, 1062, 1267, 1362, 1073, 1227, 1331, 1410, 972, 1225, 1545, 1200, 1221, 1362, 1074, 1426, 921, 1483, 1197, 1507, 1589, 1447, 1145, 1181, 1435, 1535, 1526, 1237, 1119, 1498, 1363, 1025, 1385, 1044, 1656, 1465, 1233, 1168, 1432, 1133, 1338, 1249, 1057]
+    # diseased_list_S2 = [275, 365, 339, 302, 294, 461, 440, 240, 386, 280, 228, 291, 304, 269, 286, 295, 306, 238, 277, 372, 300, 319, 398, 305, 406, 215, 397, 299, 414, 376, 400, 305, 296, 381, 379, 378, 309, 277, 370, 299, 192, 317, 274, 402, 303, 314, 269, 326, 226, 372, 323, 249]
+    # non_diseased_list_S1 = [1243, 1462, 1669, 1479, 1298, 1540, 1278, 1534, 1572, 1567, 1262, 1575, 1502, 1490, 1894, 1665, 1583, 1337, 1077,
+    #  1959, 1500, 1386, 1804, 1265, 1962, 1423, 1232, 1068, 1346, 1246, 993, 1509, 1433, 1051, 1016, 1321, 1362, 1513,
+    #  1739, 1338, 1034, 1239, 1379, 1039, 1038]
+    # non_diseased_list_S2 = [263, 364, 435, 326, 313, 355, 307, 405, 398, 385, 276, 383, 363, 351, 468, 426, 396, 254, 264, 488, 308, 330, 442, 287, 521, 291, 303, 259, 313, 295, 192, 330, 338, 232, 256, 322, 302, 361, 436, 280, 248, 266, 341, 227, 245]
+    #
+    # S1_t_test = scipy.stats.ttest_ind(a = diseased_list_S1, b = non_diseased_list_S1, equal_var = False)
+    # S2_t_test = scipy.stats.ttest_ind(a = diseased_list_S2, b = non_diseased_list_S2, equal_var = False)
+    # print("S1 t-test = " + str(S1_t_test))
+    # print("S2 t-test = " + str(S2_t_test))
 
 
 
