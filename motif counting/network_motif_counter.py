@@ -1,5 +1,5 @@
 import networkx as nx
-import numpy as np
+import numpy as np ## use np.save to save files
 import itertools
 import nltk
 import scipy
@@ -8,11 +8,13 @@ import matplotlib.pyplot as plt
 from scipy.io import loadmat
 from time import time
 from scipy import stats
+import multiprocessing
 
 import collections
 
 from collections import Counter
 
+#IMPORTANT: ENSURE THAT MOTIFS ARE DEFINED CORRECTLY
 
 """
 .By 7/27:       
@@ -110,10 +112,12 @@ size_three_brain_motifs = {
 
 }
 
+
+#IMPORTANT: ENSURE THAT MOTIFS ARE DEFINED CORRECTLY
 size_four_brain_motifs = {
     'm4.1': nx.DiGraph([(0, 1), (1, 2), (1, 0), (2, 3), (2, 1), (3, 2)]),
     'm4.2': nx.DiGraph([(0, 1), (1, 0), (1, 2), (1, 3), (2, 1), (3, 1)]),
-    'm4.3': nx.DiGraph([(0, 1), (1, 0), (1, 2), (1, 3), (2, 1), (2, 3), (3, 2), (3, 2)]),
+    'm4.3': nx.DiGraph([(0, 1), (1, 0), (1, 2), (1, 3), (3, 1), (2, 1), (2, 3), (3, 2)]),
     'm4.4': nx.DiGraph([(0, 1), (0, 3), (1, 0), (1, 2), (2, 1), (2, 3), (3, 0), (3, 2)]),
     'm4.5': nx.DiGraph([(0, 1), (0, 3), (1, 0), (1, 2), (1, 3), (2, 1), (2, 3), (3, 0), (3, 1), (3, 2)]),
     'm4.6': nx.DiGraph([(0, 1), (0, 2), (0, 3), (1, 0), (1, 2), (1, 3), (2, 0), (2, 1), (2, 3), (3, 0), (3, 1), (3, 2)])
@@ -148,8 +152,101 @@ def variance(some_list):
     variance = sum(deviations) / n
 
     return variance
+# id: from 0 to 83
+
+#adj_list: [id:{neighbor1, neighbor2, ...} ]
+#adj_list: [<set containing neighbors of v1>, <set containing neighbors of v2>, ..., <set containing neighbors of vn>]
+def search_4_node_path(adj_list):
+    visit = set()
+    visited_motif = set()
+    paths_counter = Counter()
+
+    for v1, li in enumerate(adj_list):
+        visit.add(v1)
+        for v2 in li: 
+            if v2 in visit:
+                continue
+            visit.add(v2)
+            for v3 in adj_list[v2]:
+                if v3 in visit:
+                    continue
+
+                visit.add(v3)
+                for v4 in adj_list[v3]:
+                    if v4 in visit:
+                        continue
+
+                    #What is this for: if v4 in adj_list[v1]:
+                    path = tuple(sorted([v1, v2, v3, v4]))
+                    if path not in visited_motif:
+                        visited_motif.add(path)
+                    else:
+                        continue
+                    # if(v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v3 in adj_list[v1]) and (v4 in adj_list[v3]) and (v4 in adj_list[v2]) and (v4 in adj_list[v1]):
+                    #     paths_counter.update('m4.1')
+                    # elif(v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v3]) and (v4 in adj_list[v2]) and (v4 in adj_list[v1]):
+                    #     paths_counter.update('m4.5')
+                    # elif (v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v2]):
+                    #     paths_counter.update('m4.2')
+                    # elif (v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v3]) and (v1 in adj_list[v4]):
+                    #     paths_counter.update('m4.4')
+                    # elif (v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v3]):
+                    #     paths_counter.update('m4.1')
+                    # elif(v2 in adj_list[v1]) and (v4 in adj_list[v2]) and (v3 in adj_list[v2]):
+                    #     paths_counter.update('m4.2')
+                    if((v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v3])):
+                        paths_counter['m4.1'] += 1
+                    elif((v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v2])):
+                        paths_counter['m4.2'] += 1
+                    elif((v2 in adj_list[v1]) and (v4 in adj_list[v2]) and (v4 in adj_list[v3]) and (v4 in adj_list[v1])):
+                        paths_counter['m4.3'] += 1
+                    elif((v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v3]) and (v4 in adj_list[v1])):
+                        paths_counter['m4.4'] += 1
+                    elif((v2 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v2]) and (v4 in adj_list[v1]) and (v4 in adj_list[v3])):
+                        paths_counter['m4.5'] += 1
+                    elif((v2 in adj_list[v1]) and (v3 in adj_list[v1]) and (v3 in adj_list[v2]) and (v4 in adj_list[v1]) and (v4 in adj_list[v2]) and (v4 in adj_list[v3])):
+                        paths_counter['m4.6'] += 1
+                        # Case 1: v1 connect to v3 and v2 not connect to v4 and v1 not connect to v4|| v1 not connect to v3 and v2 connect to v4 and v1 not connect to v4
+                        # Case 2: v1 connect to v3 and v2 connect to v4 and v1 not connect to v4
+                        # Case 3: v1 connect to v3 and v2 connect to v4 and v1 connect to v4
+                        # Case 4: v1 not connect to v3 and v2 not connect to v4 and v1 not connect to v4
+                        # Case 5: v1 connect to v3 and v2 not connect to v4 and v1 connect to v4|| v1 not connect to v3 and v2 connect to v4 and v1 connect to v4
+                        # Case 6: v1 not connect to v3 and v2 not connect to v4 and v1 connect to v4
+                visit.remove(v3)
+
+            visit.remove(v2)
+        visit.remove(v1)
+        print(f'remove {v1}')
+
+    return paths_counter
 
 
+def mcounterBFS(gr, mo, size):
+    visit = set()
+    paths_counter = Counter()
+    for m in mo:
+        paths_counter[m] = 0
+
+    for v1, li in enumerate(gr):
+        visit.add(v1)
+        for v2 in li:
+            if v2 in visit:
+                continue
+            visit.add(v2)
+            for v3 in gr[v2].items():
+                if v3 in visit:
+                    continue
+                visit.add(v3)
+                for v4, w3 in gr[v3].items():
+                    if v4 in visit:
+                        continue
+
+
+
+
+
+
+#IMPORTANT: ENSURE THAT MOTIFS ARE DEFINED CORRECTLY
 
 def mcounter(gr, mo, size): #does mo only contain motifs of size = 3?
     """Counts motifs in a directed graph
@@ -177,40 +274,102 @@ def mcounter(gr, mo, size): #does mo only contain motifs of size = 3?
 
 
     x = 0
+    tb = time()
     mcount = dict(zip(mo.keys(), list(map(int, np.zeros(len(mo))))))
     nodes = gr.nodes # what is this? generates NodeView obj of graph  #run
+    te = time()
+    tf = te - tb #0.0001 s
+
+    print()
+
+
 
     node_repeat = [nodes] * size
 
-    triplets = list(itertools.product(*node_repeat)) #returns all 3-node combinations
-    triplets = list([trip for trip in triplets if len(list(set(trip))) == size]) #reduces list to include only 3-node combinations w no dups.
-    triplets = map(list, map(np.sort, triplets))  # returns a list of sorted triplets (list of 3 nodes). maps isomorphic triplets to a single triplet. #run
-    triplets = list(tuple(trip) for trip in triplets)
-    u_triplets = list()
-    u_triplets = list(set(triplets))
-
-    for trip in u_triplets:
-
-        sub_gr = gr.subgraph(trip)
 
 
 
+    # tb = time()
+    u_klets = list(itertools.combinations(nodes, size))
+    print("length = " + str(len(u_klets)))
+    # klets = list(itertools.product(*node_repeat)) #returns all 3-node combinations
+    # te = time()
+    # tf = te - tb # 6.905 s
+    #
+    # tb = time()
+    # klets = list([klet for klet in klets if len(list(set(klet))) == size]) #reduces list to include only 3-node combinations w no dups.
+    # te = time()
+    # tf = te - tb # 44.34 s
+    #
+    # tb = time()
+    # klets = map(tuple, map(np.sort, klets))  # returns a list of sorted triplets (list of 3 nodes). maps isomorphic triplets to a single triplet. #run
+    # te = time()
+    # tf = te - tb # 0.000 s
+    #
+    # # tb = time()
+    # klets = list(tuple(klet) for klet in klets)
+    # # te = time()
+    # # tf = te - tb #seemingly takes over 10 mins
+    #
+    #
+    #
+    # tb = time()
+    # u_klets = set(klets)
+    # te = time()
+    #tf = te - tb
+    count = 0
+
+    # use dfs or bfs instead.
+    sub_graphs = []
+    for klet in u_klets:
+        count += 1
+        sub_graphs.append(gr.subgraph(klet))
+
+        #print("count = " + str(count))
+
+    count = Counter()
+
+    for sub in sub_graphs:
+        for k, v in mo.items():
+            if nx.is_isomorphic(sub, v):
+                count[k] += 1
+                break
+    return count
 
 
-        mot_match = list(map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys()))
 
 
 
-        match_keys = [list(mo.keys())[i] for i in range(len(mot_match)) if mot_match[i]]
 
 
 
-        if len(match_keys) == 1:
-            mcount[match_keys[0]] += 1
+        # mot_match = list(map(lambda mot_id: nx.is_isomorphic(sub_gr, mo[mot_id]), mo.keys()))
+        #
+        #
+        #
+        # match_keys = [list(mo.keys())[i] for i in range(len(mot_match)) if mot_match[i]]
+        #
+        #
+        #
+        # if len(match_keys) == 1:
+        #     mcount[match_keys[0]] += 1
 
-    return mcount
 
 
+
+    te = time()
+    tf = te - tb
+    print("tf = " + str(tf))
+
+
+def p1():
+    i = 0;
+    while i < 97:
+        mcounter()
+
+
+
+#IMPORTANT: ENSURE THAT MOTIFS ARE DEFINED CORRECTLY
 
 def main():
     #copying 4th col of Brodmann txt file to a list called 'modules'
@@ -225,35 +384,64 @@ def main():
         modules.append(tokenized_line[3])
 
 
-
-
-
     # node_repeat = list(node_repeat[:-2] + "]")
-    print()
-    print()
-    data = loadmat(r"/Users/dheepdalamal/Downloads/BP.mat")
+
+    data = loadmat(r"/Users/dheepdalamal/Downloads/HIV.mat")
     data_with_modules = data
     data_with_modules['module number'] = modules
 
-    mcounter(nx.DiGraph(data_with_modules["fmri"][:, :, 0]), size_three_brain_motifs, 4)
-
-
-
-
 #making adjacency matrix binary
-    for i in range(0, 97):
-        t1 = time()
-        for j in range(0, 82):
-            for k in range(0, 82):
+    for i in range(0, 70):
+
+        for j in range(0, 90):
+            for k in range(0, 90):
                if (data_with_modules["fmri"][:, :, i][j][k] > 0.005) or (data_with_modules["fmri"][:, :, i][j][k] < -0.005):
                     data_with_modules["fmri"][:, :, i][j][k] = 1
                else:
                     data_with_modules["fmri"][:, :, i][j][k] = 0
             data_with_modules["fmri"][:, :, i][j][j] = 0
 
-
+    #print(mcounter(nx.DiGraph(data_with_modules["fmri"][:, :, 0]), size_four_brain_motifs, 4))
     diseased_samples = 52
     non_diseased_samples = 45
+    f = open("/Users/dheepdalamal/Downloads/Rsch:CS497R/hiv counts.txt", "w")
+    motif_count = Counter()
+    u = 60
+    v = 90
+    f.write("\n")
+    f.write("\n")
+    f.write("" + str(u) + ", " + str(v) + ": ")
+    for i in range(u, v):
+        count = mcounter(nx.DiGraph(data_with_modules["fmri"][:, :, i]), size_four_brain_motifs, 4)
+        print(str(count))
+        f.write(str(count))
+        f.write("\n")
+        f.write("\n")
+
+
+
+    # #dfs mcounter alg test
+    # gt = [
+    #     set([1, 3]),
+    #     set([2, 0]),
+    #     set([1, 3, 4, 5]),
+    #     set([0, 2, 4, 6]),
+    #     set([2, 3, 6]),
+    #     set([2]),
+    #     set([3, 4])
+    # ]
+    #
+    # gt_digraph = nx.DiGraph(np.matrix([ [0, 1, 0, 1, 0, 0, 0], [1, 0, 1, 0, 0, 0, 0], [0, 1, 0, 1, 1, 1, 0], [1, 0, 1, 0, 1, 0, 1], [0, 0, 1, 1, 0, 0, 1], [0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 1, 0, 0] ]))
+    # nx.draw(gt_digraph)
+    #
+    # print("mcounter result is " + str(mcounter(gt_digraph, size_four_brain_motifs, 4)))
+    # print("dfs alg result is " + str(search_4_node_path(gt)))
+
+
+
+
+
+
 
 
     # #running mcounter alg. on whole dataset
